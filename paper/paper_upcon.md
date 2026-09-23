@@ -96,21 +96,22 @@ accumulation as something to correct; we treat the joint layer-time structure as
 to measure first.
 
 %% FIG: fig/f1_probe.png
-**Fig. 1.** The probe. **(a)** A reference trajectory holds every layer at full precision; the probe quantizes one layer group to b bits, and only while the sampler is inside one timestep band. Both trajectories are driven by the same noise draw, so the paired metric D of (5) carries no sampling variance. **(b)** The cells of the sensitivity grid, each probed in isolation.
+**Fig. 1.** The probe. **(a)** A reference trajectory holds every layer at full precision; the probe quantizes one layer group to q bits, and only while the sampler is inside one timestep band. Both trajectories are driven by the same noise draw, so the paired metric D of (5) carries no sampling variance. **(b)** The cells of the sensitivity grid, each probed in isolation.
 
 %% S3. Method
 
 **The probe.** Partition the denoiser's quantizable convolutions into layer groups G and
-normalised timestep t/T into bands B. A cell is a pair (g,b), as in Fig. 1. To measure a
-cell's marginal damage we quantize the convolutions in g to b bits only while the sampler is
-inside band b, holding every other layer, and the same layers at every other timestep, at
+normalised timestep t/T into bands K. A cell is a pair (g,k), as in Fig. 1. To measure a
+cell's marginal damage we quantize the convolutions in g to q bits only while the sampler is
+inside band k, holding every other layer, and the same layers at every other timestep, at
 full precision. Bit-width is selected at run time by a schedule evaluated against the current
 timestep and broadcast through a module-level context set once per denoising step,
 
 %% EQ 4
 
 %% CONT
-where g0 is the probed group and the band spans t/T in [tau0, tau1). Because nothing else
+where g0 is the probed group, q0 the probed bit-width and the band spans t/T in [tau0,
+tau1). Because nothing else
 changes, the resulting quality drop is attributable to that cell. Every transformation
 returns the number of modules it replaced and raises if that number is zero, and after
 sampling each timestep-aware layer is checked to confirm it observed a timestep during the
@@ -139,21 +140,23 @@ protocol compared re-draws at a different batch size; the resulting backend algo
 produced a spurious drift of 9.3e-4, the same order as a weakly sensitive cell's damage and
 large enough to have corrupted the grid without failing visibly.
 
-**The decomposition.** Let D[g,b] be measured damage at one bit-width. The separability
+**The decomposition.** Let D[g,k] be measured damage at one bit-width. The separability
 assumed by prior work is a per-layer term composed with a per-timestep term, which in log
 space is the two-way main-effects model
 
 %% EQ 6
 
 %% CONT
-with no interaction term, equivalently D[g,b] = A f(g) h(b). We fit it by row and column
+with no interaction term, equivalently D[g,k] = A f(g) h(k). We fit it by row and column
 means and split the total log-variance into a layer effect, a timestep effect and an
 interaction residual,
 
 %% EQ 7
 
 %% CONT
-and report each as a share of the total. The interaction share is the quantity of interest:
+and report each as a share of the total. With one aggregated observation per cell there is
+no replicate error term, so this is a descriptive decomposition and we report variance shares
+rather than tests. The interaction share is the quantity of interest:
 it is the part of the sensitivity surface that no separable table can represent, and Fig. 2
 draws it for the CIFAR-10 DDPM at W1. We deliberately do not fit the best rank-one outer
 product of the log matrix. That model carries a free per-group multiplier and can itself flip
@@ -161,7 +164,7 @@ the sign of the temporal trend, so it would conceal the effect under test. Main 
 the stricter and the correct null.
 
 %% FIG: fig/f2_grid.png
-**Fig. 2.** The decomposition, with measured values from the CIFAR-10 DDPM at W1. **(a)** The measured damage grid D[g,b]. **(b)** The main-effects fit of (6), which is what a separable sensitivity table encodes. **(c)** The interaction residual, measured divided by fit: the separable table is wrong by a factor of 2.9 on the worst cell, and in opposite directions in different regions of the grid.
+**Fig. 2.** The decomposition, with measured values from the CIFAR-10 DDPM at W1. **(a)** The measured damage grid D[g,k]. **(b)** The main-effects fit of (6), which is what a separable sensitivity table encodes. **(c)** The interaction residual, measured divided by fit: the separable table is wrong by a factor of 2.9 on the worst cell, and in opposite directions in different regions of the grid.
 
 %% CONT
 
@@ -206,13 +209,14 @@ samples against the CIFAR-10 training set, three noise streams per arm.
 
 %% S5. Regime one: a CIFAR-10 DDPM
 
-Table I gives the ANOVA decomposition. The layer axis dominates, as prior work assumes. The
+Table I gives the variance decomposition. The layer axis dominates, as prior work assumes. The
 finding is the relative size of the two remaining terms: the interaction exceeds the timestep
 main effect by 4.4 to 6.4 times, at every bit-width measured.
 
 %% TABLE1
-CIFAR-10 DDPM. Two-way ANOVA on log damage, as a share of total log-variance. The last
-column is the largest factor by which the main-effects fit misses a single cell.
+CIFAR-10 DDPM. Two-way variance decomposition of log damage, as a share of total
+log-variance. The last column is the largest factor by which the main-effects fit misses a
+single cell.
 Bit-width | Layer | Timestep | Interaction | Worst cell miss
 W1 | 86.9% | 2.0% | 11.2% | x2.93
 W2 | 85.3% | 2.7% | 11.9% | x4.42
@@ -267,7 +271,7 @@ reflect layers that were never in the grid. The claim we make is the weaker and
 better-supported one: the structure is model-dependent and must be measured.
 
 %% FIG: fig/f3_regimes.png
-**Fig. 3.** Sensitivity structure is model-dependent. **(a)** On the CIFAR-10 DDPM the temporal profiles of the four layer groups cross, so a timestep score marginalised over layers nearly cancels. **(b)** On the CelebA-HQ 256 denoiser, measured with the identical protocol and drawn on the same logarithmic axis, all four profiles share a sign. **(c)** The two-way ANOVA split of (7) for both models at every bit-width measured, with the interaction share printed at the right.
+**Fig. 3.** Sensitivity structure is model-dependent. **(a)** On the CIFAR-10 DDPM the temporal profiles of the four layer groups cross, so a timestep score marginalised over layers nearly cancels. **(b)** On the CelebA-HQ 256 denoiser, measured with the identical protocol and drawn on the same logarithmic axis, all four profiles share a sign. **(c)** The two-way variance split of (7) for both models at every bit-width measured, with the interaction share printed at the right.
 
 %% S7. Compositional prediction
 
@@ -307,7 +311,7 @@ a discretised budget, for the per-cell assignment minimising total predicted dam
 %% EQ 9
 
 %% CONT
-where b_gb is the bit-width assigned to cell (g,b). Two allocators are compared, differing
+where q_gk is the bit-width assigned to cell (g,k). Two allocators are compared, differing
 only in whether the damage table D is the measured grid or its main-effects fit from (6).
 Scored by the paired metric they were built to minimise, the measured allocator wins at every
 budget, by 28.9, 4.1, 47.9 and 12.9% at 2, 3, 4 and 6 average bits, a mean of 23.4%. The
@@ -424,14 +428,15 @@ generation metric is not measuring what it believes it is measuring.
 
 Every number in this paper is released as a tidy CSV, one row per measured observation with
 no aggregation applied, together with the scripts that produce the figures and tables from
-them.
+them, at `github.com/krizz711/layer-timestep-separability`.
 
 %% ACKNOWLEDGMENT
-The authors used Anthropic's Claude to assist with implementing the measurement harness and
-analysis scripts described in Sections III and IV, with generating the figures, and with
-drafting and editing portions of the manuscript. All experiments were designed, executed and
-verified by the authors, who take full responsibility for the content and the conclusions of
-this work.
+The authors used Anthropic's Claude for three parts of this work and no others:
+implementing the measurement harness and analysis scripts of Sections III and IV, generating
+the figures from the released data, and drafting and editing the text of the manuscript. The
+experimental design, the execution of every measurement, the analysis and the interpretation
+were carried out and verified by the authors, who take full responsibility for the content
+and the conclusions of this work.
 
 %% REFERENCES
 [1] K. G. Mills, M. Salameh, R. Chen, N. Hassanpour, W.-Y. Lu, and D. Niu, "Qua2SeDiMo: Quantifiable quantization sensitivity of diffusion models," Proc. AAAI Conf. Artificial Intelligence, vol. 39, no. 6, 2025, doi:10.1609/aaai.v39i6.32658.

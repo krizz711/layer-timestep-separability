@@ -32,6 +32,11 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIGDIR = os.path.join(os.path.dirname(HERE), "fig")     # figures live one level up
+# equations are re-set for this build with the disentangled notation; fall back
+# to the shared set if that has not been rendered yet
+EQDIR = os.path.join(HERE, "eqfig")
+if not os.path.isdir(EQDIR):
+    EQDIR = FIGDIR
 SRC = os.path.join(HERE, "paper_upcon.md")
 OUT = os.path.join(HERE, "layer_timestep_upcon.pdf")
 
@@ -238,7 +243,7 @@ def make_table(lines, colw):
 
 
 def equation(n, meta):
-    path = os.path.join(FIGDIR, "eq%d.png" % n)
+    path = os.path.join(EQDIR, "eq%d.png" % n)
     w, h = meta["w"], meta["h"]
     numw = 24.0
     avail = COLW - numw - 4
@@ -267,7 +272,7 @@ def heading(text):
 def build():
     title, blocks = parse(SRC)
     bd = dict(blocks)
-    eqs = json.load(open(os.path.join(FIGDIR, "eqs.json"), encoding="utf-8"))
+    eqs = json.load(open(os.path.join(EQDIR, "eqs.json"), encoding="utf-8"))
 
     # ---------- full-width title block ----------
     head = [Paragraph(md_inline(title), S["title"])]
@@ -337,7 +342,10 @@ def build():
             continue
         if key.startswith("FIG:"):
             rel = key.split(":", 1)[1].strip()
-            path = os.path.join(os.path.dirname(HERE), rel)
+            # figures whose artwork carries notation are re-rendered for this
+            # build into figdir/; everything else comes from the shared set
+            local = os.path.join(HERE, "figdir", os.path.basename(rel))
+            path = local if os.path.exists(local) else                 os.path.join(os.path.dirname(HERE), rel)
             if not os.path.exists(path):
                 raise SystemExit("missing figure %s" % path)
             cap = " ".join(l.strip() for l in lines if l.strip())
