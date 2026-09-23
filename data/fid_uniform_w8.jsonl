@@ -1,0 +1,3 @@
+{"key": "uniform_w8|seed0", "arm": "uniform_w8", "budget": 6.0, "seed": 0, "fid": 29.635116872035667, "avg_bits": 8.0, "n_samples": 2000}
+{"key": "uniform_w8|seed1", "arm": "uniform_w8", "budget": 6.0, "seed": 1, "fid": 31.340889294868134, "avg_bits": 8.0, "n_samples": 2000}
+{"key": "uniform_w8|seed2", "arm": "uniform_w8", "budget": 6.0, "seed": 2, "fid": 31.115115995963833, "avg_bits": 8.0, "n_samples": 2000}
